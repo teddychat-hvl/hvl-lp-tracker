@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Horizons — LP Portfolio Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bg: #0e0f0f; --surface: #161818; --surface2: #1e2020;
+  --border: #2a2d2d; --border2: #333636;
+  --accent: #c9a96e; --accent2: #e8c98a;
+  --text: #e8e6e1; --text2: #9a9690; --text3: #5a5754;
+  --green: #6db890; --red: #c97070; --blue: #7aaec9;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; font-weight:300; min-height:100vh; overflow-x:hidden; }
+body::before { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(201,169,110,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(201,169,110,0.03) 1px,transparent 1px); background-size:40px 40px; pointer-events:none; z-index:0; }
+.app { position:relative; z-index:1; }
+
+header { border-bottom:1px solid var(--border); padding:0 40px; display:flex; align-items:center; justify-content:space-between; height:64px; background:rgba(14,15,15,0.9); backdrop-filter:blur(12px); position:sticky; top:0; z-index:100; }
+.logo { font-family:'Playfair Display',serif; font-size:18px; letter-spacing:0.02em; color:var(--accent); }
+.logo span { color:var(--text3); font-size:12px; font-family:'DM Mono',monospace; font-weight:300; margin-left:12px; letter-spacing:0.1em; text-transform:uppercase; }
+.header-right { display:flex; align-items:center; gap:16px; }
+.api-status { display:flex; align-items:center; gap:8px; font-family:'DM Mono',monospace; font-size:11px; color:var(--text3); letter-spacing:0.05em; }
+.api-dot { width:6px; height:6px; border-radius:50%; background:var(--text3); transition:background 0.3s; }
+.api-dot.connected { background:var(--green); box-shadow:0 0 6px var(--green); }
+
+.main { display:flex; min-height:calc(100vh - 64px); }
+.sidebar { width:220px; border-right:1px solid var(--border); padding:32px 0; flex-shrink:0; background:var(--surface); overflow-y:auto; }
+.nav-section { margin-bottom:32px; padding:0 12px; }
+.nav-label { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.15em; text-transform:uppercase; color:var(--text3); margin-bottom:10px; padding:0 4px; }
+.nav-item { display:flex; align-items:center; gap:8px; padding:8px 8px; border-radius:4px; cursor:pointer; font-size:12px; color:var(--text2); transition:all 0.15s; margin-bottom:2px; border:1px solid transparent; justify-content:flex-start; }
+.nav-item:hover { background:var(--surface2); color:var(--text); }
+.nav-item.active { background:var(--surface2); color:var(--accent); border-color:var(--border); }
+.nav-icon { font-size:14px; width:16px; text-align:center; flex-shrink:0; }
+
+.content { flex:1; padding:40px; overflow-y:auto; min-width:0; }
+
+/* QUARTER COLOURS */
+.q1 { color:#d4b84a; }
+.q2 { color:#d4824a; }
+.q3 { color:#c46a8a; }
+.q4 { color:#9a6ac4; }
+
+/* BUTTONS */
+.btn-primary { background:var(--accent); color:var(--bg); border:none; padding:11px 24px; font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; border-radius:4px; font-weight:500; transition:all 0.2s; white-space:nowrap; }
+.btn-primary:hover { background:var(--accent2); }
+.btn-ghost { background:none; border:1px solid var(--border2); color:var(--text2); padding:7px 16px; font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; border-radius:3px; transition:all 0.2s; }
+.btn-ghost:hover { border-color:var(--accent); color:var(--accent); }
+.btn-danger { background:none; border:1px solid var(--red); color:var(--red); padding:7px 16px; font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; border-radius:3px; transition:all 0.2s; }
+.btn-danger:hover { background:rgba(201,112,112,0.1); }
+.export-btn { background:none; border:1px solid var(--border2); color:var(--text2); padding:7px 14px; font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; border-radius:3px; transition:all 0.2s; }
+.export-btn:hover { border-color:var(--green); color:var(--green); }
+.edit-btn { background:none; border:none; color:var(--text3); cursor:pointer; font-size:12px; padding:4px 8px; border-radius:3px; transition:all 0.15s; font-family:'DM Mono',monospace; }
+.edit-btn:hover { color:var(--accent); background:rgba(201,169,110,0.08); }
+
+/* PAGE HEADER */
+.page-header { margin-bottom:36px; display:flex; align-items:flex-end; justify-content:space-between; }
+.page-title { font-family:'Playfair Display',serif; font-size:28px; font-weight:400; color:var(--text); margin-bottom:4px; }
+.page-subtitle { font-size:13px; color:var(--text3); font-family:'DM Mono',monospace; letter-spacing:0.04em; }
+
+/* STATS */
+.stats-row { display:grid; grid-template-columns:repeat(6,1fr); gap:16px; margin-bottom:36px; }
+.stat-card { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:20px; }
+.stat-label { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text3); margin-bottom:10px; }
+.stat-value { font-family:'Playfair Display',serif; font-size:22px; color:var(--accent); }
+.stat-value.neutral { color:var(--text); }
+
+/* TABLE */
+.table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:6px; overflow:hidden; }
+.table-scroll { overflow-x:auto; }
+.table-scroll::-webkit-scrollbar { height:6px; }
+.table-scroll::-webkit-scrollbar-track { background:var(--surface2); }
+.table-scroll::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+.table-scroll::-webkit-scrollbar-thumb:hover { background:var(--accent); }
+.table-toolbar { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.search-input { background:var(--bg); border:1px solid var(--border); color:var(--text); padding:8px 14px; font-family:'DM Mono',monospace; font-size:11px; border-radius:3px; outline:none; width:220px; transition:border-color 0.2s; }
+.search-input:focus { border-color:var(--accent); }
+.search-input::placeholder { color:var(--text3); }
+.filter-btn { background:none; border:1px solid var(--border); color:var(--text3); padding:6px 12px; font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.06em; cursor:pointer; border-radius:3px; transition:all 0.15s; text-transform:uppercase; }
+.filter-btn:hover, .filter-btn.active { border-color:var(--accent); color:var(--accent); }
+table { width:100%; border-collapse:collapse; }
+th { padding:12px 16px; text-align:left; font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text3); border-bottom:1px solid var(--border); white-space:nowrap; cursor:pointer; }
+th:hover { color:var(--text2); }
+td { padding:13px 16px; font-size:13px; border-bottom:1px solid var(--border); white-space:nowrap; }
+tr:last-child td { border-bottom:none; }
+tr:hover td { background:rgba(255,255,255,0.02); }
+.td-fund { font-family:'DM Sans',sans-serif; font-weight:400; color:var(--text); }
+.td-sub { font-family:'DM Mono',monospace; font-size:10px; color:var(--text3); margin-top:2px; }
+.td-mono { font-family:'DM Mono',monospace; font-size:12px; color:var(--text2); }
+.td-metric { font-family:'DM Mono',monospace; font-size:12px; font-weight:500; }
+.positive { color:var(--green); } .negative { color:var(--red); } .neutral { color:var(--text2); } .highlight { color:var(--accent); } .highlight2 { color:var(--accent2); }
+
+.empty-state { padding:80px 40px; text-align:center; }
+.empty-title { font-family:'Playfair Display',serif; font-size:20px; color:var(--text3); margin-bottom:8px; }
+.empty-sub { font-family:'DM Mono',monospace; font-size:11px; color:var(--text3); letter-spacing:0.06em; }
+
+/* UPLOAD */
+.upload-zone { border:1px dashed var(--border2); border-radius:8px; padding:48px; text-align:center; cursor:pointer; transition:all 0.2s; background:var(--surface); margin-bottom:36px; }
+.upload-zone:hover, .upload-zone.drag-over { border-color:var(--accent); background:rgba(201,169,110,0.04); }
+.upload-icon { font-size:32px; margin-bottom:12px; }
+.upload-title { font-family:'Playfair Display',serif; font-size:18px; color:var(--text); margin-bottom:8px; }
+.upload-sub { font-size:13px; color:var(--text3); font-family:'DM Mono',monospace; letter-spacing:0.04em; }
+
+/* PROCESSING */
+.processing-list { background:var(--surface); border:1px solid var(--border); border-radius:6px; overflow:hidden; margin-bottom:36px; }
+.processing-header { padding:16px 20px; border-bottom:1px solid var(--border); font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text3); display:flex; justify-content:space-between; }
+.processing-item { display:flex; align-items:center; padding:14px 20px; border-bottom:1px solid var(--border); gap:14px; }
+.processing-item:last-child { border-bottom:none; }
+.processing-name { flex:1; color:var(--text2); font-family:'DM Mono',monospace; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.processing-status { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.06em; padding:3px 10px; border-radius:20px; }
+.status-pending { background:rgba(90,87,84,0.2); color:var(--text3); }
+.status-processing { background:rgba(122,174,201,0.15); color:var(--blue); }
+.status-done { background:rgba(109,184,144,0.15); color:var(--green); }
+.status-error { background:rgba(201,112,112,0.15); color:var(--red); }
+.spinner { width:14px; height:14px; border:2px solid var(--border2); border-top-color:var(--blue); border-radius:50%; animation:spin 0.7s linear infinite; flex-shrink:0; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* FUND DETAIL */
+.back-btn { display:inline-flex; align-items:center; gap:8px; font-family:'DM Mono',monospace; font-size:11px; color:var(--text3); cursor:pointer; margin-bottom:20px; transition:color 0.15s; }
+.back-btn:hover { color:var(--accent); }
+.fund-name-large { font-family:'Playfair Display',serif; font-size:32px; font-weight:400; color:var(--text); margin-bottom:6px; }
+.metrics-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:36px; }
+.metric-card { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:24px; }
+.metric-label { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text3); margin-bottom:12px; }
+.metric-value { font-family:'Playfair Display',serif; font-size:28px; color:var(--accent); }
+.metric-value.good { color:var(--green); } .metric-value.bad { color:var(--red); } .metric-value.muted { color:var(--text); }
+.section-title { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text3); margin-bottom:16px; }
+
+/* MODAL */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:200; display:flex; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
+.modal { background:var(--surface); border:1px solid var(--border2); border-radius:8px; padding:40px; width:480px; max-width:90vw; }
+.modal.wide { width:620px; max-height:90vh; overflow-y:auto; }
+.modal h3 { font-family:'Playfair Display',serif; font-size:22px; font-weight:400; color:var(--accent); margin-bottom:16px; }
+.modal p { font-size:13px; color:var(--text2); line-height:1.7; margin-bottom:24px; }
+.modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:24px; }
+.input-row { display:flex; gap:10px; margin-bottom:16px; }
+.input-field { flex:1; background:var(--bg); border:1px solid var(--border2); color:var(--text); padding:11px 16px; font-family:'DM Mono',monospace; font-size:12px; border-radius:4px; outline:none; transition:border-color 0.2s; }
+.input-field:focus { border-color:var(--accent); }
+.input-field::placeholder { color:var(--text3); }
+
+/* EDIT GRID */
+.edit-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:8px; }
+.edit-field { display:flex; flex-direction:column; gap:6px; }
+.edit-field.full { grid-column:1/-1; }
+.edit-section { grid-column:1/-1; font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent); padding-bottom:8px; border-bottom:1px solid var(--border); margin-top:8px; }
+.edit-label { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text3); }
+.edit-input { background:var(--bg); border:1px solid var(--border2); color:var(--text); padding:9px 12px; font-family:'DM Mono',monospace; font-size:12px; border-radius:3px; outline:none; transition:border-color 0.2s; width:100%; }
+.edit-input:focus { border-color:var(--accent); }
+
+/* TOAST */
+.toast { position:fixed; bottom:32px; right:32px; background:var(--surface2); border:1px solid var(--border2); border-radius:6px; padding:14px 20px; font-family:'DM Mono',monospace; font-size:12px; color:var(--text); z-index:1000; transform:translateY(20px); opacity:0; transition:all 0.3s; max-width:360px; }
+.toast.show { transform:translateY(0); opacity:1; }
+.toast.success { border-color:var(--green); color:var(--green); }
+.toast.error { border-color:var(--red); color:var(--red); }
+
+.hidden { display:none !important; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+.fade-in { animation:fadeIn 0.3s ease forwards; }
+::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-track { background:var(--bg); } ::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+
+/* INLINE CELL EDITOR */
+.cell-edit {
+  position:fixed;
+  background:var(--surface2);
+  border:1px solid var(--accent);
+  border-radius:4px;
+  padding:6px;
+  z-index:500;
+  display:flex;
+  gap:6px;
+  align-items:center;
+  box-shadow:0 4px 20px rgba(0,0,0,0.5);
+}
+.cell-edit input, .cell-edit select {
+  background:var(--bg);
+  border:1px solid var(--border2);
+  color:var(--text);
+  padding:5px 8px;
+  font-family:'DM Mono',monospace;
+  font-size:12px;
+  border-radius:3px;
+  outline:none;
+  width:140px;
+}
+.cell-edit input:focus { border-color:var(--accent); }
+.cell-edit-save {
+  background:var(--accent);
+  color:var(--bg);
+  border:none;
+  padding:5px 10px;
+  font-family:'DM Mono',monospace;
+  font-size:10px;
+  font-weight:500;
+  cursor:pointer;
+  border-radius:3px;
+}
+.cell-edit-cancel {
+  background:none;
+  border:none;
+  color:var(--text3);
+  cursor:pointer;
+  font-size:14px;
+  line-height:1;
+  padding:2px 4px;
+}
+td.editable:hover { background:rgba(201,169,110,0.06) !important; cursor:cell; }
+td.editable:hover::after { content:'✎'; font-size:9px; color:var(--text3); margin-left:4px; }
+.lks-yes { color:var(--green); font-weight:500; }
+.lks-no { color:var(--text3); }
+
+/* LOCKED (manual/sticky) cells — subtle amber underline dot */
+td.locked {
+  position:relative;
+}
+td.locked::before {
+  content:'';
+  position:absolute;
+  bottom:6px;
+  left:50%;
+  transform:translateX(-50%);
+  width:4px;
+  height:4px;
+  border-radius:50%;
+  background:var(--accent);
+  opacity:0.5;
+}
+td.locked:hover::before { opacity:1; }
+
+/* Legend */
+.table-legend {
+  display:flex;
+  align-items:center;
+  gap:20px;
+  padding:10px 20px;
+  border-top:1px solid var(--border);
+  font-family:'DM Mono',monospace;
+  font-size:10px;
+  color:var(--text3);
+  letter-spacing:0.04em;
+}
+.legend-item { display:flex; align-items:center; gap:7px; }
+.legend-dot-auto {
+  width:8px; height:8px; border-radius:50%;
+  background:var(--text3); opacity:0.4;
+}
+.legend-dot-locked {
+  width:4px; height:4px; border-radius:50%;
+  background:var(--accent); opacity:0.7;
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+  <div class="logo">Horizons <span>LP Tracker</span></div>
+  <div class="header-right">
+    <div class="api-status">
+      <div class="api-dot" id="api-dot"></div>
+      <span id="api-status-text">No API Key</span>
+    </div>
+    <button class="btn-ghost" onclick="showModal('api-modal')">⚙ Configure API</button>
+  </div>
+</header>
+
+<div class="main">
+  <nav class="sidebar">
+    <div class="nav-section">
+      <div class="nav-label">Views</div>
+      <div class="nav-item active" id="nav-portfolio" onclick="showView('portfolio')"><span class="nav-icon">◈</span> Portfolio</div>
+      <div class="nav-item" id="nav-upload" onclick="showView('upload')"><span class="nav-icon">↑</span> Upload</div>
+    </div>
+    <div class="nav-section" id="fund-nav-section" style="display:none">
+      <div class="nav-label">Funds</div>
+      <div id="fund-nav-list"></div>
+    </div>
+  </nav>
+
+  <main class="content">
+
+    <!-- PORTFOLIO VIEW -->
+    <div id="view-portfolio">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Portfolio Overview</div>
+          <div style="display:flex;align-items:center;gap:16px">
+            <div class="page-subtitle" id="portfolio-subtitle">— funds tracked</div>
+            <div id="fx-status" onclick="showFxRates()" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);letter-spacing:0.06em;cursor:pointer" title="Click to view FX rates">○ FX loading...</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn-primary" onclick="showModal('add-modal')">+ Add Fund</button>
+          <button class="export-btn" onclick="triggerImport()">↑ Import CSV</button>
+          <input type="file" id="csv-import-input" accept=".csv" style="display:none" onchange="importCSV(event)">
+          <button class="export-btn" onclick="rescueFromLocalStorage()" style="border-color:var(--blue);color:var(--blue)" title="Restore from another tab">⟳ Rescue</button>
+          <button class="export-btn" onclick="exportCSV()">↓ Export CSV</button>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-label">Total Committed</div><div class="stat-value neutral" id="stat-committed">—</div></div>
+        <div class="stat-card"><div class="stat-label">Total Drawdown</div><div class="stat-value neutral" id="stat-drawdown">—</div></div>
+        <div class="stat-card"><div class="stat-label">Total NAV</div><div class="stat-value" id="stat-nav">—</div></div>
+        <div class="stat-card"><div class="stat-label">Total Distributed</div><div class="stat-value neutral" id="stat-dist">—</div></div>
+        <div class="stat-card"><div class="stat-label">Total Value (NAV + Dist)</div><div class="stat-value" id="stat-totalvalue">—</div></div>
+        <div class="stat-card"><div class="stat-label">Avg TVPI</div><div class="stat-value" id="stat-tvpi">—</div></div>
+      </div>
+      <div id="fx-note" style="display:none;font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);margin-top:-20px;margin-bottom:24px;letter-spacing:0.04em">* Some funds use currencies without available FX rates and are excluded from USD totals.</div>
+
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <input type="text" class="search-input" placeholder="Search funds..." id="search-input" oninput="renderPortfolio()">
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="filter-btn" id="usd-toggle" onclick="toggleUSD(this)" title="Convert non-USD funds to USD">$ Native</button>
+            <div style="width:1px;height:16px;background:var(--border2);margin:0 4px"></div>
+            <button class="filter-btn active" id="sort-name" onclick="setSort('name',this)">Name</button>
+            <button class="filter-btn" id="sort-vintage" onclick="setSort('vintage',this)">Vintage</button>
+            <button class="filter-btn" id="sort-tvpi" onclick="setSort('tvpi',this)">TVPI ↓</button>
+            <button class="filter-btn" id="sort-irr" onclick="setSort('irr',this)">IRR ↓</button>
+            <button class="filter-btn" id="sort-nav" onclick="setSort('nav',this)">NAV ↓</button>
+            <button class="filter-btn" id="sort-dist" onclick="setSort('dist',this)">Distrib ↓</button>
+          </div>
+        </div>
+        <div id="table-container">
+          <div class="empty-state"><div class="empty-title">No fund data yet</div><div class="empty-sub">Upload capital account statements to get started</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- UPLOAD VIEW -->
+    <div id="view-upload" class="hidden">
+      <div class="page-header">
+        <div><div class="page-title">Upload Statements</div><div class="page-subtitle">PDF or Excel — past or present, multiple files at once</div></div>
+      </div>
+      <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+        <div class="upload-icon">⊕</div>
+        <div class="upload-title">Drop files here</div>
+        <div class="upload-sub">PDF or Excel (.xlsx / .xls) — multiple files supported</div>
+        <input type="file" id="file-input" multiple accept=".pdf,.xlsx,.xls" style="display:none" onchange="handleFileSelect(event)">
+      </div>
+      <div id="processing-container" class="hidden">
+        <div class="processing-list">
+          <div class="processing-header"><span>Processing Queue</span><span id="processing-count" style="color:var(--text2)"></span></div>
+          <div id="processing-items"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FUND DETAIL VIEW -->
+    <div id="view-fund" class="hidden">
+      <div class="back-btn" onclick="showView('portfolio')">← Back to Portfolio</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <div class="fund-name-large" id="detail-name">—</div>
+    <button class="btn-ghost" onclick="prefillAddModal()" style="flex-shrink:0">+ Add Statement</button>
+  </div>
+      <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text3);margin-bottom:32px" id="detail-entity">—</div>
+      <div class="metrics-grid" id="detail-metrics"></div>
+      <div class="section-title">Historical Performance</div>
+      <div class="table-wrap" id="detail-history"></div>
+    </div>
+
+  </main>
+</div>
+</div>
+
+<!-- FX RATES MODAL -->
+<div class="modal-overlay hidden" id="fx-modal">
+  <div class="modal">
+    <h3>FX Rates (to USD)</h3>
+    <p style="margin-bottom:16px">Live rates fetched from exchangerate-api.com. Rates refresh every hour and are used to convert all non-USD figures in the summary totals.</p>
+    <div id="fx-rates-list" style="margin-bottom:24px"></div>
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);margin-bottom:20px" id="fx-last-updated"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="hideModal('fx-modal')">Close</button>
+      <button class="btn-primary" onclick="ensureFxRates(true)">Refresh Rates</button>
+    </div>
+  </div>
+</div>
+
+<!-- API MODAL -->
+<div class="modal-overlay hidden" id="api-modal">
+  <div class="modal">
+    <h3>API Configuration</h3>
+    <p>Enter your Anthropic API key. Stored only in your browser, sent only to api.anthropic.com.</p>
+    <div class="input-row"><input type="password" class="input-field" id="api-key-input" placeholder="sk-ant-api03-..."></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="hideModal('api-modal')">Cancel</button>
+      <button class="btn-primary" onclick="saveApiKey()">Save Key</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD FUND MODAL -->
+<div class="modal-overlay hidden" id="add-modal">
+  <div class="modal wide">
+    <h3>Add Fund Manually</h3>
+    <p>Enter fund details below. You can add multiple statements for the same fund — each statement date creates a separate historical record.</p>
+
+    <div class="edit-grid">
+      <div class="edit-section" style="grid-column:1/-1">Identity</div>
+      <div class="edit-field full"><label class="edit-label">Fund Name *</label><input class="edit-input" id="add-fund_name" type="text" placeholder="e.g. Sequoia Capital Fund XVIII"></div>
+      <div class="edit-field full"><label class="edit-label">LP Entity</label><input class="edit-input" id="add-lp_entity" type="text" placeholder="e.g. Bloch International Limited"></div>
+      <div class="edit-field"><label class="edit-label">Statement Date * (YYYY-MM-DD)</label><input class="edit-input" id="add-statement_date" type="text" placeholder="e.g. 2025-12-31"></div>
+      <div class="edit-field"><label class="edit-label">Vintage Year</label><input class="edit-input" id="add-vintage" type="number" placeholder="e.g. 2019"></div>
+      <div class="edit-field"><label class="edit-label">Currency</label><input class="edit-input" id="add-currency" type="text" placeholder="USD" value="USD"></div>
+      <div class="edit-field"><label class="edit-label">Fund Size (in fund currency)</label><input class="edit-input" id="add-fund_size" type="number" placeholder="e.g. 500000000"></div>
+
+      <div class="edit-section" style="grid-column:1/-1">Commitment & Capital</div>
+      <div class="edit-field"><label class="edit-label">Total Commitment</label><input class="edit-input" id="add-total_commitment" type="number" placeholder="0"></div>
+      <div class="edit-field"><label class="edit-label">Contributions ITD</label><input class="edit-input" id="add-contributions_itd" type="number" placeholder="0"></div>
+      <div class="edit-field"><label class="edit-label">Remaining Commitment</label><input class="edit-input" id="add-remaining_commitment" type="number" placeholder="0"></div>
+      <div class="edit-field"><label class="edit-label">Distributions ITD</label><input class="edit-input" id="add-distributions_itd" type="number" placeholder="0"></div>
+      <div class="edit-field"><label class="edit-label">Ending NAV</label><input class="edit-input" id="add-ending_nav" type="number" placeholder="0"></div>
+      <div class="edit-field"><label class="edit-label">Ownership %</label><input class="edit-input" id="add-ownership_pct" type="number" placeholder="e.g. 2.5" step="0.01"></div>
+
+      <div class="edit-section" style="grid-column:1/-1">Performance <span style="font-weight:300;color:var(--text3);font-size:9px;margin-left:8px">(TVPI, DPI, MOIC auto-calculated from contributions, distributions and NAV)</span></div>
+      <div class="edit-field"><label class="edit-label">Net IRR (%)</label><input class="edit-input" id="add-net_irr" type="number" placeholder="e.g. 18.5" step="0.01"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="hideModal('add-modal');clearAddForm()">Cancel</button>
+      <button class="btn-primary" onclick="saveAddRecord()">Save Record</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay hidden" id="edit-modal">
+  <div class="modal wide">
+    <h3>Edit Record</h3>
+    <p>Correct any fields extracted incorrectly.</p>
+    <div class="edit-grid" id="edit-grid"></div>
+    <div class="modal-actions">
+      <button class="btn-danger" onclick="deleteRecord()">Delete</button>
+      <div style="flex:1"></div>
+      <button class="btn-ghost" onclick="hideModal('edit-modal')">Cancel</button>
+      <button class="btn-primary" onclick="saveEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- INLINE CELL EDITOR -->
+<div class="cell-edit hidden" id="cell-editor">
+  <input id="cell-editor-input" type="text">
+  <select id="cell-editor-select" class="hidden">
+    <option value="">—</option>
+    <option value="Yes">Yes</option>
+    <option value="No">No</option>
+  </select>
+  <button class="cell-edit-save" onclick="saveCellEdit()">✓</button>
+  <button class="cell-edit-cancel" onclick="closeCellEditor()">✕</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// -- STATE --
+let apiKey = localStorage.getItem('hv_api_key') || '';
+let records = [];
+let currentSort = 'name';
+let editIdx = null;
+let showInUSD = false;
+
+try { records = JSON.parse(localStorage.getItem('hv_records') || '[]'); } catch(e) { records = []; }
+// Recalculate multiples for all existing records on load
+records.forEach(calcMultiples);
+
+// -- INIT --
+window.addEventListener('DOMContentLoaded', () => {
+  if (apiKey) setApiStatus(true);
+  renderPortfolio();
+  renderFundNav();
+});
+
+// -- HELPERS --
+function save() { localStorage.setItem('hv_records', JSON.stringify(records)); }
+
+function latestByFund() {
+  const map = {};
+  for (const r of records) {
+    if (!map[r.fund_name] || r.statement_date > map[r.fund_name].statement_date)
+      map[r.fund_name] = r;
+  }
+  return Object.values(map);
+}
+
+function historyFor(name) {
+  return records.filter(r => r.fund_name === name)
+    .sort((a,b) => a.statement_date.localeCompare(b.statement_date));
+}
+
+const CURRENCY_SYMBOLS = { USD:'USD', EUR:'EUR', GBP:'GBP', JPY:'JPY', AUD:'A$', SGD:'S$', HKD:'HK$', CNY:'CNY', KRW:'KRW', INR:'INR' };
+function currencySymbol(c) { return CURRENCY_SYMBOLS[(c||'USD').toUpperCase()] || (c||'$'); }
+
+function fmt$(v, currency) {
+  if (v === null || v === undefined) return '--';
+  const n = parseFloat(v); if (isNaN(n)) return '--';
+  const sym = currencySymbol(currency);
+  if (Math.abs(n) >= 1e6) return sym + (n/1e6).toFixed(2) + 'M';
+  if (Math.abs(n) >= 1e3) return sym + (n/1e3).toFixed(0) + 'K';
+  return sym + n.toFixed(0);
+}
+function fmtFundSize(v, currency) {
+  if (v === null || v === undefined) return '--';
+  const n = parseFloat(v); if (isNaN(n)) return '--';
+  const sym = currencySymbol(currency);
+  if (Math.abs(n) >= 1e9) return sym + (n/1e9).toFixed(1) + 'B';
+  if (Math.abs(n) >= 1e6) return sym + (n/1e6).toFixed(0) + 'M';
+  if (Math.abs(n) >= 1e3) return sym + (n/1e3).toFixed(0) + 'K';
+  return sym + n.toFixed(0);
+}
+function fmtX(v) {
+  if (v === null || v === undefined) return '--';
+  const n = parseFloat(v); if (isNaN(n)) return '--';
+  return n.toFixed(2) + 'x';
+}
+function fmtPct(v) {
+  if (v === null || v === undefined) return '--';
+  const n = parseFloat(v); if (isNaN(n)) return '--';
+  return (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
+}
+function quarterClass(dateStr) {
+  if (!dateStr) return '';
+  const month = parseInt(dateStr.slice(5, 7));
+  if (month <= 3) return 'q1';
+  if (month <= 6) return 'q2';
+  if (month <= 9) return 'q3';
+  return 'q4';
+}
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function tvpiClass(v) {
+  if (v === null || v === undefined) return 'neutral';
+  const n = parseFloat(v); if (isNaN(n)) return 'neutral';
+  return n >= 2 ? 'positive' : n >= 1 ? 'neutral' : 'negative';
+}
+function irrClass(v) {
+  if (v === null || v === undefined) return 'neutral';
+  const n = parseFloat(v); if (isNaN(n)) return 'neutral';
+  return n >= 15 ? 'positive' : n >= 0 ? 'neutral' : 'negative';
+}
+
+// -- NAV --
+function showView(v, fundName) {
+  ['portfolio','upload','fund'].forEach(id => {
+    document.getElementById('view-' + id).classList.add('hidden');
+    const n = document.getElementById('nav-' + id);
+    if (n) n.classList.remove('active');
+  });
+  document.getElementById('view-' + v).classList.remove('hidden');
+  const n = document.getElementById('nav-' + v);
+  if (n) n.classList.add('active');
+  if (v === 'portfolio') renderPortfolio();
+  if (v === 'fund' && fundName) renderFundDetail(fundName);
+}
+
+function renderFundNav() {
+  const funds = latestByFund();
+  const sec = document.getElementById('fund-nav-section');
+  const list = document.getElementById('fund-nav-list');
+  if (!funds.length) { sec.style.display = 'none'; return; }
+  sec.style.display = 'block';
+  // Sort alphabetically by fund name
+  funds.sort((a,b) => a.fund_name.localeCompare(b.fund_name));
+  // Use data-idx to avoid any quoting issues with fund names
+  window._navFunds = funds.map(f => f.fund_name);
+  list.innerHTML = funds.map((f, i) =>
+    `<div class="nav-item" data-nav-idx="${i}" onclick="showView('fund', window._navFunds[${i}])" style="font-size:12px">
+      <span class="nav-icon" style="font-size:11px">o</span>
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.fund_name)}</span>
+    </div>`
+  ).join('');
+}
+
+// -- PORTFOLIO --
+function setSort(key, btn) {
+  currentSort = key;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // Re-activate usd toggle if it was on
+  if (showInUSD) document.getElementById('usd-toggle').classList.add('active');
+  renderPortfolio();
+}
+
+function toggleUSD(btn) {
+  showInUSD = !showInUSD;
+  btn.textContent = showInUSD ? '$ USD' : '$ Native';
+  btn.classList.toggle('active', showInUSD);
+  renderPortfolio();
+}
+
+// -- FX RATES --
+let fxRates = {}; // { EUR: 1.08, JPY: 0.0067, ... } -- all to USD
+let fxLastFetched = null;
+let fxFetching = false;
+
+async function ensureFxRates(force) {
+  if (fxFetching) return;
+  const now = Date.now();
+  if (!force && fxLastFetched && (now - fxLastFetched) < 3600000) return;
+  fxFetching = true;
+  try {
+    const resp = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+    if (resp.ok) {
+      const data = await resp.json();
+      fxRates = {};
+      for (const [code, rate] of Object.entries(data.rates)) {
+        fxRates[code] = 1 / rate;
+      }
+      fxRates['USD'] = 1;
+      fxLastFetched = now;
+      renderPortfolioStats(window._lastFunds || []);
+      setFxStatus(true);
+    }
+  } catch(e) {
+    console.warn('FX fetch failed:', e);
+    setFxStatus(false);
+  }
+  fxFetching = false;
+}
+
+function showFxRates() {
+  // Get all currencies used in portfolio
+  const usedCurrencies = new Set(['USD']);
+  records.forEach(r => { if (r.currency) usedCurrencies.add(r.currency.toUpperCase()); });
+
+  const list = document.getElementById('fx-rates-list');
+  const updated = document.getElementById('fx-last-updated');
+
+  if (!Object.keys(fxRates).length) {
+    list.innerHTML = '<div style="color:var(--text3);font-family:\'DM Mono\',monospace;font-size:12px">Rates not yet loaded. Try refreshing.</div>';
+  } else {
+    const COMMON = ['USD','EUR','GBP','JPY','AUD','SGD','HKD','CNY','KRW','INR'];
+    const toShow = [...new Set([...usedCurrencies, ...COMMON])].sort();
+    list.innerHTML = toShow.map(cur => {
+      const rate = fxRates[cur];
+      const inUse = usedCurrencies.has(cur);
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;font-size:12px">
+        <span style="color:${inUse ? 'var(--accent)' : 'var(--text2)'}">
+          ${cur}${inUse && cur !== 'USD' ? ' <span style="font-size:9px;color:var(--green)">IN USE</span>' : ''}
+        </span>
+        <span style="color:var(--text)">
+          ${rate ? '1 ' + cur + ' = $' + rate.toFixed(cur === 'JPY' || cur === 'KRW' ? 6 : 4) + ' USD' : 'unavailable'}
+        </span>
+      </div>`;
+    }).join('');
+    updated.textContent = fxLastFetched ? 'Last updated: ' + new Date(fxLastFetched).toLocaleTimeString() : '';
+  }
+
+  showModal('fx-modal');
+}
+
+function toUSD(amount, currency) {
+  if (!amount) return 0;
+  const cur = (currency || 'USD').toUpperCase();
+  if (cur === 'USD') return parseFloat(amount) || 0;
+  const rate = fxRates[cur];
+  if (!rate) return null; // Unknown currency -- exclude from aggregate
+  return (parseFloat(amount) || 0) * rate;
+}
+
+function setFxStatus(ok) {
+  const el = document.getElementById('fx-status');
+  if (!el) return;
+  el.textContent = ok ? 'o FX live' : 'o FX unavailable';
+  el.style.color = ok ? 'var(--green)' : 'var(--text3)';
+}
+
+function renderPortfolioStats(funds) {
+  window._lastFunds = funds;
+  const hasFx = Object.keys(fxRates).length > 0;
+
+  let committed = 0, drawdown = 0, nav = 0, dist = 0, fxMissing = false;
+  for (const r of funds) {
+    const cur = (r.currency || 'USD').toUpperCase();
+    const c = toUSD(r.total_commitment, cur);
+    const d = toUSD(r.contributions_itd, cur);
+    const n = toUSD(r.ending_nav, cur);
+    const di = toUSD(r.distributions_itd, cur);
+    if (c === null || n === null || di === null) { fxMissing = true; continue; }
+    committed += c; drawdown += (d || 0); nav += n; dist += di;
+  }
+  const totalVal = nav + dist;
+  const tvpis = funds.map(r => parseFloat(r.tvpi)).filter(v => !isNaN(v));
+
+  const note = fxMissing ? ' *' : '';
+  document.getElementById('stat-committed').textContent = committed ? fmt$(committed) + note : '--';
+  document.getElementById('stat-drawdown').textContent = drawdown ? fmt$(drawdown) + note : '--';
+  document.getElementById('stat-nav').textContent = nav ? fmt$(nav) + note : '--';
+  document.getElementById('stat-dist').textContent = dist ? fmt$(dist) + note : '--';
+  document.getElementById('stat-totalvalue').textContent = totalVal ? fmt$(totalVal) + note : '--';
+  document.getElementById('stat-tvpi').textContent = tvpis.length ? fmtX(tvpis.reduce((a,b)=>a+b)/tvpis.length) : '--';
+
+  const noteEl = document.getElementById('fx-note');
+  if (noteEl) noteEl.style.display = fxMissing ? 'block' : 'none';
+}
+
+function renderPortfolio() {
+  const search = (document.getElementById('search-input')?.value || '').toLowerCase();
+  let funds = latestByFund().filter(r =>
+    r.fund_name.toLowerCase().includes(search) ||
+    (r.lp_entity||'').toLowerCase().includes(search)
+  );
+
+  funds.sort((a,b) => {
+    if (currentSort === 'name') return a.fund_name.localeCompare(b.fund_name);
+    if (currentSort === 'vintage') return (parseFloat(a.vintage)||9999) - (parseFloat(b.vintage)||9999);
+    if (currentSort === 'tvpi') return (parseFloat(b.tvpi)||0) - (parseFloat(a.tvpi)||0);
+    if (currentSort === 'irr') return (parseFloat(b.net_irr)||-999) - (parseFloat(a.net_irr)||-999);
+    if (currentSort === 'nav') return (parseFloat(b.ending_nav)||0) - (parseFloat(a.ending_nav)||0);
+    if (currentSort === 'dist') return (parseFloat(b.distributions_itd)||0) - (parseFloat(a.distributions_itd)||0);
+    return 0;
+  });
+
+  const all = latestByFund();
+  document.getElementById('portfolio-subtitle').textContent =
+    all.length + ' fund' + (all.length !== 1 ? 's' : '') + ' tracked';
+
+  renderPortfolioStats(funds);
+  ensureFxRates(); // Fetch/refresh in background
+
+  const container = document.getElementById('table-container');
+  if (!funds.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-title">No fund data yet</div><div class="empty-sub">Upload capital account statements to get started</div></div>`;
+    return;
+  }
+
+  // Store fund names for click handlers -- avoids ALL quoting issues
+  window._portfolioFunds = funds.map(f => f.fund_name);
+
+  let rows = '';
+  for (let i = 0; i < funds.length; i++) {
+    const r = funds[i];
+    const hist = historyFor(r.fund_name);
+    const cur = r.currency || 'USD';
+    const isNonUSD = cur.toUpperCase() !== 'USD';
+    const useUSD = showInUSD && isNonUSD;
+    const rate = useUSD ? (fxRates[cur.toUpperCase()] || null) : 1;
+    const displayCur = useUSD ? 'USD' : cur;
+
+    // Convert a value: if showInUSD and non-USD, multiply by rate (or show -- if rate unavailable)
+    const cv = (v) => {
+      if (v === null || v === undefined) return null;
+      if (!useUSD) return v;
+      if (!rate) return null;
+      return parseFloat(v) * rate;
+    };
+
+    const tvVal = (parseFloat(cv(r.ending_nav))||0) + (parseFloat(cv(r.distributions_itd))||0);
+    const noRate = useUSD && !rate;
+    const curTag = !useUSD && isNonUSD ? `<span style="font-size:9px;color:var(--text3);margin-left:4px">${cur}</span>` : '';
+    const usdTag = useUSD && isNonUSD ? `<span style="font-size:9px;color:var(--blue);margin-left:4px">USD</span>` : '';
+    const displayTag = curTag || usdTag;
+    const lks = r.lks || '';
+    const lksClass = lks === 'Yes' ? 'lks-yes' : lks === 'No' ? 'lks-no' : '';
+    const distLocked = !!r.lock_distributions;
+    const recIdx = records.findIndex(rec => rec.fund_name === r.fund_name && rec.statement_date === r.statement_date);
+
+    rows += `<tr>
+      <td style="cursor:pointer" onclick="showView('fund', window._portfolioFunds[${i}])"><div class="td-fund">${esc(r.fund_name)}</div><div class="td-sub">${hist.length} statement${hist.length!==1?'s':''}</div></td>
+      <td class="td-mono editable locked" onclick="openCellEditor(event,${recIdx},'vintage','number')">${r.vintage || '--'}</td>
+      <td class="td-mono editable locked" onclick="openCellEditor(event,${recIdx},'fund_size','number')">${fmtFundSize(cv(r.fund_size), displayCur)}${displayTag}</td>
+      <td class="td-mono ${quarterClass(r.statement_date)}">${esc(r.statement_date)}</td>
+      <td class="td-mono editable" onclick="openCellEditor(event,${recIdx},'total_commitment','number')">${noRate ? '<span style="color:var(--text3)">no rate</span>' : fmt$(cv(r.total_commitment), displayCur)}${displayTag}</td>
+      <td class="td-mono editable" onclick="openCellEditor(event,${recIdx},'contributions_itd','number')">${noRate ? '<span style="color:var(--text3)">no rate</span>' : fmt$(cv(r.contributions_itd), displayCur)}${displayTag}</td>
+      <td class="td-mono editable" onclick="openCellEditor(event,${recIdx},'remaining_commitment','number')">${noRate ? '<span style="color:var(--text3)">no rate</span>' : fmt$(cv(r.remaining_commitment), displayCur)}${displayTag}</td>
+      <td class="td-mono editable${distLocked?' locked':''}" onclick="openDistEditor(event,${recIdx})">${noRate ? '<span style="color:var(--text3)">no rate</span>' : fmt$(cv(r.distributions_itd), displayCur)}${displayTag}</td>
+      <td class="td-mono highlight editable" onclick="openCellEditor(event,${recIdx},'ending_nav','number')">${noRate ? '<span style="color:var(--text3)">no rate</span>' : fmt$(cv(r.ending_nav), displayCur)}${displayTag}</td>
+      <td class="td-mono highlight2">${noRate ? '--' : (tvVal > 0 ? fmt$(tvVal, displayCur) + displayTag : '--')}</td>
+      <td class="td-metric ${tvpiClass(r.tvpi)}">${fmtX(r.tvpi)}</td>
+      <td class="td-metric neutral">${fmtX(r.dpi)}</td>
+      <td class="td-metric neutral">${fmtX(r.moic)}</td>
+      <td class="td-metric ${irrClass(r.net_irr)} editable locked" onclick="openCellEditor(event,${recIdx},'net_irr','number')">${fmtPct(r.net_irr)}</td>
+      <td class="td-mono editable locked" onclick="openCellEditor(event,${recIdx},'ownership_pct','number')">${r.ownership_pct != null ? parseFloat(r.ownership_pct).toFixed(2)+'%' : '--'}</td>
+      <td class="td-mono editable locked ${lksClass}" onclick="openCellEditor(event,${recIdx},'lks','select')" style="text-align:center;min-width:52px">${lks || '--'}</td>
+    </tr>`;
+  }
+
+  container.innerHTML = `<div class="table-scroll"><table>
+    <thead><tr>
+      <th>Fund</th><th>Vintage</th><th>Fund Size</th><th>As Of</th>
+      <th>Commitment</th><th>Contrib ITD</th><th>Remaining</th><th>Distrib ITD</th>
+      <th>NAV</th><th>Total Value</th>
+      <th>TVPI</th><th>DPI</th><th>MOIC</th><th>Net IRR</th><th>Own %</th>
+      <th style="text-align:center">LKS?</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>
+  <div class="table-legend">
+    <div class="legend-item"><div class="legend-dot-locked"></div> Manual / protected -- never overwritten by uploads</div>
+    <div class="legend-item"><div class="legend-dot-locked" style="background:var(--accent);opacity:1"></div> Distrib ITD -- click cell to lock/unlock per fund</div>
+    <div class="legend-item"><div class="legend-dot-auto"></div> Auto-updated from statements</div>
+  </div>`;
+}
+
+// -- FUND DETAIL --
+function renderFundDetail(name) {
+  const hist = historyFor(name);
+  if (!hist.length) return;
+  const r = hist[hist.length - 1];
+
+  document.getElementById('detail-name').textContent = name;
+  document.getElementById('detail-entity').textContent = r.lp_entity || '';
+
+  const cur = r.currency || 'USD';
+  const curLabel = cur !== 'USD' ? ` <span style="font-size:12px;color:var(--text3)">${cur}</span>` : '';
+
+  document.getElementById('detail-metrics').innerHTML = `
+    <div class="metric-card"><div class="metric-label">Ending NAV</div><div class="metric-value">${fmt$(r.ending_nav, cur)}${curLabel}</div></div>
+    <div class="metric-card"><div class="metric-label">TVPI</div><div class="metric-value ${tvpiClass(r.tvpi) === 'positive' ? 'good' : tvpiClass(r.tvpi) === 'negative' ? 'bad' : 'muted'}">${fmtX(r.tvpi)}</div></div>
+    <div class="metric-card"><div class="metric-label">Net IRR</div><div class="metric-value ${irrClass(r.net_irr) === 'positive' ? 'good' : irrClass(r.net_irr) === 'negative' ? 'bad' : 'muted'}">${fmtPct(r.net_irr)}</div></div>
+    <div class="metric-card"><div class="metric-label">Total Value</div><div class="metric-value muted" style="font-size:22px">${fmt$((parseFloat(r.ending_nav)||0)+(parseFloat(r.distributions_itd)||0), cur)}${curLabel}</div></div>
+    <div class="metric-card"><div class="metric-label">Vintage</div><div class="metric-value muted" style="font-size:22px">${r.vintage || '--'}</div></div>
+    <div class="metric-card"><div class="metric-label">Fund Size</div><div class="metric-value muted" style="font-size:22px">${fmtFundSize(r.fund_size, cur)}${curLabel}</div></div>
+    <div class="metric-card"><div class="metric-label">Commitment</div><div class="metric-value muted" style="font-size:22px">${fmt$(r.total_commitment, cur)}${curLabel}</div></div>
+    <div class="metric-card"><div class="metric-label">Distributions ITD</div><div class="metric-value muted" style="font-size:22px">${fmt$(r.distributions_itd, cur)}${curLabel}</div></div>
+  `;
+
+  // Store indices for edit buttons
+  window._histRecords = hist.map(h => records.indexOf(h));
+
+  let rows = '';
+  for (let i = 0; i < hist.length; i++) {
+    const h = hist[i];
+    const hcur = h.currency || 'USD';
+    rows += `<tr>
+      <td class="td-mono" style="color:var(--text)">${esc(h.statement_date)}</td>
+      <td class="td-mono">${fmt$(h.total_commitment, hcur)}</td>
+      <td class="td-mono">${fmt$(h.contributions_itd, hcur)}</td>
+      <td class="td-mono">${fmt$(h.remaining_commitment, hcur)}</td>
+      <td class="td-mono">${fmt$(h.distributions_itd, hcur)}</td>
+      <td class="td-mono highlight">${fmt$(h.ending_nav, hcur)}</td>
+      <td class="td-metric ${tvpiClass(h.tvpi)}">${fmtX(h.tvpi)}</td>
+      <td class="td-metric neutral">${fmtX(h.dpi)}</td>
+      <td class="td-metric neutral">${fmtX(h.moic)}</td>
+      <td class="td-metric ${irrClass(h.net_irr)}">${fmtPct(h.net_irr)}</td>
+      <td class="td-mono">${h.ownership_pct != null ? parseFloat(h.ownership_pct).toFixed(2)+'%' : '--'}</td>
+      <td><button class="edit-btn" onclick="showEditModal(window._histRecords[${i}])">edit edit</button></td>
+    </tr>`;
+  }
+
+  document.getElementById('detail-history').innerHTML = `<table>
+    <thead><tr>
+      <th>Date</th><th>Commitment</th><th>Contrib ITD</th><th>Remaining</th>
+      <th>Distrib ITD</th><th>NAV</th><th>TVPI</th><th>DPI</th><th>MOIC</th>
+      <th>Net IRR</th><th>Own %</th><th></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+// -- ADD RECORD MANUALLY --
+const ADD_FIELDS = [
+  { id:'fund_name', type:'text' }, { id:'lp_entity', type:'text' },
+  { id:'statement_date', type:'text' }, { id:'vintage', type:'number' },
+  { id:'currency', type:'text' }, { id:'fund_size', type:'number' },
+  { id:'total_commitment', type:'number' }, { id:'contributions_itd', type:'number' },
+  { id:'remaining_commitment', type:'number' }, { id:'distributions_itd', type:'number' },
+  { id:'ending_nav', type:'number' }, { id:'ownership_pct', type:'number' },
+  { id:'net_irr', type:'number' },
+];
+
+function saveAddRecord() {
+  const fundName = document.getElementById('add-fund_name').value.trim();
+  const stmtDate = document.getElementById('add-statement_date').value.trim();
+  if (!fundName) { toast('Fund name is required', 'error'); return; }
+  if (!stmtDate || !/^\d{4}-\d{2}-\d{2}$/.test(stmtDate)) { toast('Statement date must be YYYY-MM-DD', 'error'); return; }
+
+  const row = {};
+  ADD_FIELDS.forEach(f => {
+    const el = document.getElementById('add-' + f.id);
+    const val = el.value.trim();
+    if (f.type === 'number') {
+      row[f.id] = val === '' ? null : parseFloat(val);
+    } else {
+      row[f.id] = val || null;
+    }
+  });
+
+  // Default currency to USD if blank
+  if (!row.currency) row.currency = 'USD';
+
+  // Always calculate multiples from raw numbers
+  calcMultiples(row);
+
+  // Check for duplicate
+  const exists = records.findIndex(r => r.fund_name === row.fund_name && r.statement_date === row.statement_date);
+  if (exists >= 0) {
+    if (!confirm(`A record for "${fundName}" on ${stmtDate} already exists. Overwrite it?`)) return;
+    records[exists] = row;
+    toast('Record updated', 'success');
+  } else {
+    records.push(row);
+    toast('Record added', 'success');
+  }
+
+  save(); renderFundNav(); renderPortfolio();
+  hideModal('add-modal'); clearAddForm();
+  // Navigate to the fund detail
+  showView('fund', fundName);
+}
+
+function clearAddForm() {
+  ADD_FIELDS.forEach(f => {
+    const el = document.getElementById('add-' + f.id);
+    if (el) el.value = f.id === 'currency' ? 'USD' : '';
+  });
+}
+
+function prefillAddModal() {
+  clearAddForm();
+  const name = document.getElementById('detail-name').textContent;
+  const hist = historyFor(name);
+  const latest = hist.length ? hist[hist.length - 1] : null;
+  document.getElementById('add-fund_name').value = name;
+  if (latest) {
+    document.getElementById('add-lp_entity').value = latest.lp_entity || '';
+    document.getElementById('add-currency').value = latest.currency || 'USD';
+    document.getElementById('add-vintage').value = latest.vintage || '';
+    document.getElementById('add-fund_size').value = latest.fund_size || '';
+    document.getElementById('add-total_commitment').value = latest.total_commitment || '';
+    document.getElementById('add-ownership_pct').value = latest.ownership_pct || '';
+  }
+  showModal('add-modal');
+}
+const FIELDS = [
+  { key:'fund_name', label:'Fund Name', type:'text', section:'Identity', full:true },
+  { key:'lp_entity', label:'LP Entity', type:'text', full:true },
+  { key:'statement_date', label:'Statement Date (YYYY-MM-DD)', type:'text' },
+  { key:'lks', label:'LKS?', type:'text' },
+  { key:'vintage', label:'Vintage Year', type:'number' },
+  { key:'currency', label:'Currency (e.g. USD, JPY, EUR, AUD)', type:'text' },
+  { key:'fund_size', label:'Fund Size (in fund currency)', type:'number', full:true },
+  { key:'total_commitment', label:'Total Commitment', type:'number', section:'Commitment & Capital' },
+  { key:'contributions_itd', label:'Contributions ITD', type:'number' },
+  { key:'remaining_commitment', label:'Remaining Commitment', type:'number' },
+  { key:'distributions_itd', label:'Distributions ITD', type:'number' },
+  { key:'ending_nav', label:'Ending NAV', type:'number' },
+  { key:'tvpi', label:'TVPI (x)', type:'number', section:'Performance' },
+  { key:'dpi', label:'DPI (x)', type:'number' },
+  { key:'moic', label:'MOIC (x)', type:'number' },
+  { key:'net_irr', label:'Net IRR (%)', type:'number' },
+  { key:'ownership_pct', label:'Ownership %', type:'number' },
+];
+
+// -- INLINE CELL EDITOR --
+let _cellEditIdx = null;
+let _cellEditKey = null;
+let _cellEditType = null;
+
+function openCellEditor(e, recIdx, key, type) {
+  e.stopPropagation();
+  _cellEditIdx = recIdx;
+  _cellEditKey = key;
+  _cellEditType = type;
+
+  const editor = document.getElementById('cell-editor');
+  const input = document.getElementById('cell-editor-input');
+  const select = document.getElementById('cell-editor-select');
+
+  const r = records[recIdx];
+  const val = r[key] !== null && r[key] !== undefined ? r[key] : '';
+
+  if (type === 'select') {
+    input.classList.add('hidden');
+    select.classList.remove('hidden');
+    select.value = val;
+  } else {
+    select.classList.add('hidden');
+    input.classList.remove('hidden');
+    input.type = type === 'number' ? 'number' : 'text';
+    input.value = val;
+    input.step = 'any';
+  }
+
+  // Position near the clicked cell
+  const rect = e.currentTarget.getBoundingClientRect();
+  editor.classList.remove('hidden');
+  const edW = 230;
+  let left = rect.left;
+  if (left + edW > window.innerWidth - 10) left = window.innerWidth - edW - 10;
+  editor.style.left = left + 'px';
+  editor.style.top = (rect.bottom + 4) + 'px';
+
+  // Focus
+  setTimeout(() => { type === 'select' ? select.focus() : input.focus(); }, 50);
+
+  // Enter key saves
+  input.onkeydown = (ev) => { if (ev.key === 'Enter') saveCellEdit(); if (ev.key === 'Escape') closeCellEditor(); };
+  select.onkeydown = (ev) => { if (ev.key === 'Enter') saveCellEdit(); if (ev.key === 'Escape') closeCellEditor(); };
+}
+
+function saveCellEdit() {
+  if (_cellEditIdx === null) return;
+  const input = document.getElementById('cell-editor-input');
+  const select = document.getElementById('cell-editor-select');
+  const raw = _cellEditType === 'select' ? select.value : input.value.trim();
+  const r = records[_cellEditIdx];
+
+  if (_cellEditType === 'number') {
+    r[_cellEditKey] = raw === '' ? null : parseFloat(raw);
+  } else {
+    r[_cellEditKey] = raw || null;
+  }
+
+  // If editing a fund-level field (lks, vintage, fund_size, currency),
+  // propagate to ALL records for this fund so it stays consistent
+  const fundLevelKeys = new Set(['lks','vintage','fund_size','currency','lp_entity']);
+  if (fundLevelKeys.has(_cellEditKey)) {
+    const fundName = r.fund_name;
+    records.forEach(rec => {
+      if (rec.fund_name === fundName) rec[_cellEditKey] = r[_cellEditKey];
+    });
+  }
+
+  // Recalculate multiples if a raw number was changed
+  const multInputKeys = new Set(['contributions_itd','distributions_itd','ending_nav']);
+  if (multInputKeys.has(_cellEditKey)) calcMultiples(r);
+
+  save();
+  closeCellEditor();
+  renderPortfolio();
+}
+
+function closeCellEditor() {
+  document.getElementById('cell-editor').classList.add('hidden');
+  _cellEditIdx = null; _cellEditKey = null; _cellEditType = null;
+}
+
+// Close editor on outside click -- only when editor is visible
+document.addEventListener('click', (e) => {
+  const editor = document.getElementById('cell-editor');
+  if (!editor || editor.classList.contains('hidden')) return;
+  if (editor.contains(e.target)) return;
+  // Don't intercept clicks on modal overlays or header buttons
+  if (e.target.closest('.modal-overlay') || e.target.closest('header') || e.target.closest('.btn-ghost') || e.target.closest('.btn-primary') || e.target.closest('.export-btn')) return;
+  closeCellEditor();
+});
+
+// -- DISTRIBUTIONS LOCK EDITOR --
+function openDistEditor(e, recIdx) {
+  e.stopPropagation();
+  const r = records[recIdx];
+  const isLocked = !!r.lock_distributions;
+
+  // Reuse the cell editor but inject a custom UI for dist lock toggle
+  _cellEditIdx = recIdx;
+  _cellEditKey = 'distributions_itd';
+  _cellEditType = 'number';
+
+  const editor = document.getElementById('cell-editor');
+  const input = document.getElementById('cell-editor-input');
+  const select = document.getElementById('cell-editor-select');
+
+  select.classList.add('hidden');
+  input.classList.remove('hidden');
+  input.type = 'number';
+  input.step = 'any';
+  input.value = r.distributions_itd !== null && r.distributions_itd !== undefined ? r.distributions_itd : '';
+
+  // Position editor
+  const rect = e.currentTarget.getBoundingClientRect();
+  editor.classList.remove('hidden');
+  const edW = 310;
+  let left = rect.left;
+  if (left + edW > window.innerWidth - 10) left = window.innerWidth - edW - 10;
+  editor.style.left = left + 'px';
+  editor.style.top = (rect.bottom + 4) + 'px';
+
+  // Inject lock toggle button into editor
+  let toggleBtn = document.getElementById('dist-lock-toggle');
+  if (!toggleBtn) {
+    toggleBtn = document.createElement('button');
+    toggleBtn.id = 'dist-lock-toggle';
+    toggleBtn.style.cssText = 'background:none;border:1px solid var(--border2);color:var(--text2);padding:5px 8px;font-family:"DM Mono",monospace;font-size:9px;letter-spacing:0.06em;cursor:pointer;border-radius:3px;white-space:nowrap;';
+    editor.insertBefore(toggleBtn, editor.querySelector('.cell-edit-save'));
+  }
+  toggleBtn.textContent = isLocked ? '[lock] locked' : '[unlock] auto';
+  toggleBtn.style.color = isLocked ? 'var(--accent)' : 'var(--text3)';
+  toggleBtn.style.borderColor = isLocked ? 'var(--accent)' : 'var(--border2)';
+  toggleBtn.onclick = (ev) => {
+    ev.stopPropagation();
+    const newLocked = !r.lock_distributions;
+    // Propagate lock flag to all records for this fund
+    records.forEach(rec => {
+      if (rec.fund_name === r.fund_name) rec.lock_distributions = newLocked;
+    });
+    toggleBtn.textContent = newLocked ? '[lock] locked' : '[unlock] auto';
+    toggleBtn.style.color = newLocked ? 'var(--accent)' : 'var(--text3)';
+    toggleBtn.style.borderColor = newLocked ? 'var(--accent)' : 'var(--border2)';
+    save();
+  };
+
+  setTimeout(() => input.focus(), 50);
+  input.onkeydown = (ev) => { if (ev.key === 'Enter') saveCellEdit(); if (ev.key === 'Escape') closeCellEditor(); };
+}
+
+function showEditModal(idx) {
+  editIdx = idx;
+  const r = records[idx];
+  const grid = document.getElementById('edit-grid');
+  grid.innerHTML = FIELDS.map(f => {
+    const val = r[f.key] !== undefined && r[f.key] !== null ? r[f.key] : '';
+    return (f.section ? `<div class="edit-section">${f.section}</div>` : '') +
+      `<div class="edit-field${f.full?' full':''}">
+        <label class="edit-label">${f.label}</label>
+        <input class="edit-input" type="${f.type==='number'?'number':'text'}" step="any" data-key="${f.key}" value="${esc(String(val))}">
+      </div>`;
+  }).join('');
+  showModal('edit-modal');
+}
+
+function saveEdit() {
+  if (editIdx === null) return;
+  const r = records[editIdx];
+  document.querySelectorAll('#edit-grid .edit-input').forEach(input => {
+    const f = FIELDS.find(f => f.key === input.dataset.key);
+    r[f.key] = f.type === 'number'
+      ? (input.value === '' ? null : parseFloat(input.value))
+      : input.value.trim();
+  });
+  save(); hideModal('edit-modal'); renderFundDetail(r.fund_name); renderFundNav();
+  toast('Record updated', 'success');
+}
+
+function deleteRecord() {
+  if (editIdx === null) return;
+  const name = records[editIdx].fund_name;
+  if (!confirm('Delete this record? This cannot be undone.')) return;
+  records.splice(editIdx, 1); save(); hideModal('edit-modal'); renderFundNav();
+  const remaining = historyFor(name);
+  if (remaining.length) renderFundDetail(name); else showView('portfolio');
+  toast('Record deleted', 'success');
+}
+
+// -- UPLOAD --
+function handleDragOver(e) { e.preventDefault(); document.getElementById('upload-zone').classList.add('drag-over'); }
+function handleDragLeave() { document.getElementById('upload-zone').classList.remove('drag-over'); }
+function handleDrop(e) {
+  e.preventDefault(); document.getElementById('upload-zone').classList.remove('drag-over');
+  const files = Array.from(e.dataTransfer.files).filter(f => isValidFile(f));
+  if (files.length) processFiles(files);
+}
+function handleFileSelect(e) {
+  processFiles(Array.from(e.target.files));
+  e.target.value = '';
+}
+function isValidFile(f) {
+  return f.type === 'application/pdf' || f.name.endsWith('.xlsx') || f.name.endsWith('.xls') ||
+    f.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+    f.type === 'application/vnd.ms-excel';
+}
+
+async function processFiles(files) {
+  if (!apiKey) { toast('Configure your API key first', 'error'); showModal('api-modal'); return; }
+  const container = document.getElementById('processing-container');
+  const itemsEl = document.getElementById('processing-items');
+  const countEl = document.getElementById('processing-count');
+  container.classList.remove('hidden');
+
+  const queue = files.map(f => ({ file:f, status:'pending' }));
+  function renderQueue() {
+    const done = queue.filter(q => q.status==='done').length;
+    countEl.textContent = done + ' / ' + queue.length + ' complete';
+    itemsEl.innerHTML = queue.map(q =>
+      `<div class="processing-item">
+        ${q.status==='processing' ? '<div class="spinner"></div>' : '<div style="width:14px"></div>'}
+        <span class="processing-name">${esc(q.file.name)}</span>
+        <span class="processing-status status-${q.status}">${q.status}</span>
+      </div>`
+    ).join('');
+  }
+  renderQueue();
+
+  for (const item of queue) {
+    item.status = 'processing'; renderQueue();
+    try {
+      const isExcel = item.file.name.endsWith('.xlsx') || item.file.name.endsWith('.xls');
+      const extracted = isExcel
+        ? await extractFromText(await excelToText(item.file))
+        : await extractFromPDF(await fileToBase64(item.file));
+
+      // extracted is always an array
+      if (extracted && extracted.length > 0) {
+        let saved = 0;
+        for (const rec of extracted) {
+          const idx = records.findIndex(r => r.fund_name===rec.fund_name && r.statement_date===rec.statement_date);
+
+          // Fields always sticky (never overwritten by uploads)
+          const STICKY = ['fund_size','ownership_pct','lks','vintage','currency','net_irr','lock_distributions'];
+
+          if (idx >= 0) {
+            const existing = records[idx];
+            STICKY.forEach(key => {
+              if (existing[key] !== null && existing[key] !== undefined) rec[key] = existing[key];
+            });
+            // Only protect distributions if lock is on
+            if (existing.lock_distributions && existing.distributions_itd !== null && existing.distributions_itd !== undefined) {
+              rec.distributions_itd = existing.distributions_itd;
+            }
+            records[idx] = rec;
+          } else {
+            const FUND_LEVEL_STICKY = ['fund_size','lks','vintage','currency','net_irr','lock_distributions'];
+            const latestExisting = records
+              .filter(r => r.fund_name === rec.fund_name)
+              .sort((a,b) => b.statement_date.localeCompare(a.statement_date))[0];
+            if (latestExisting) {
+              FUND_LEVEL_STICKY.forEach(key => {
+                if (rec[key] === null || rec[key] === undefined) rec[key] = latestExisting[key];
+              });
+              // Carry forward locked distributions value to new quarter too
+              if (latestExisting.lock_distributions && latestExisting.distributions_itd !== null) {
+                rec.distributions_itd = latestExisting.distributions_itd;
+              }
+            }
+            records.push(rec);
+          }
+          // Recalculate multiples after sticky field preservation
+          calcMultiples(rec);
+          saved++;
+        }
+        save(); renderFundNav();
+        item.status = 'done';
+        item.count = saved;
+      } else { item.status = 'error'; }
+    } catch(e) { console.error(e); item.status = 'error'; }
+    renderQueue();
+  }
+
+  const doneItems = queue.filter(q=>q.status==='done');
+  const totalRecords = doneItems.reduce((s,q)=>s+(q.count||0),0);
+  const err = queue.filter(q=>q.status==='error').length;
+  if (doneItems.length) toast(`${totalRecords} record${totalRecords>1?'s':''} extracted from ${doneItems.length} file${doneItems.length>1?'s':''}`, 'success');
+  if (err) toast(err + ' file' + (err>1?'s':'') + ' failed', 'error');
+}
+
+function fileToBase64(file) {
+  return new Promise((res,rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = () => rej(new Error('Read failed'));
+    r.readAsDataURL(file);
+  });
+}
+
+function excelToText(file) {
+  return new Promise((res,rej) => {
+    const r = new FileReader();
+    r.onload = (e) => {
+      try {
+        const wb = XLSX.read(new Uint8Array(e.target.result), { type:'array' });
+        let text = '';
+        for (const name of wb.SheetNames) {
+          text += '\n\n--- Sheet: ' + name + ' ---\n';
+          text += XLSX.utils.sheet_to_csv(wb.Sheets[name]);
+        }
+        res(text);
+      } catch(err) { rej(err); }
+    };
+    r.onerror = () => rej(new Error('Read failed'));
+    r.readAsArrayBuffer(file);
+  });
+}
+
+const EXTRACTION_RULES = `Carefully examine this document. It may contain data for ONE fund or MULTIPLE funds in a single statement.
+
+IMPORTANT: Always return a JSON array -- even if there is only one fund, return an array with one object.
+
+For EACH fund found, extract these fields:
+{
+  "fund_name": "exact fund name",
+  "lp_entity": "LP / investor name (the investor/LP, not the fund)",
+  "statement_date": "YYYY-MM-DD (last day of the quarter)",
+  "total_commitment": number or null,
+  "contributions_itd": number or null,
+  "remaining_commitment": number or null,
+  "distributions_itd": number or null,
+  "ending_nav": number or null,
+  "net_irr": number or null,
+  "ownership_pct": number or null
+}
+
+DO NOT extract TVPI, DPI, or MOIC -- these will be calculated separately.
+
+HOW TO DETECT MULTIPLE FUNDS:
+- Look for tables listing multiple fund names as rows (e.g. "Fund I", "Fund II" each with their own figures)
+- A summary/total row should NOT be extracted as a fund -- skip rows labelled "Total", "Sum Total", "Subtotal" etc.
+- The LP entity row (investor name) should also NOT be extracted as a fund name
+- Each distinct fund vehicle (L.P., Ltd, LLC, etc.) with its own figures = one record
+
+Rules:
+- Monetary values as plain numbers, e.g. 2500000
+- Net IRR as percentage number, e.g. 24.74
+- If a field is not in the document, return null (never 0 as a default)
+- If remaining_commitment not shown but fully called, set to 0
+- If distributions_itd is explicitly shown as 0 or "-", set to 0, otherwise null if absent
+- ownership_pct: This is your % ownership of the TOTAL FUND (e.g. "4.01% of Total Equity"). Do NOT confuse with: % of commitment called/paid (e.g. "56.33% paid in"), % unfunded, or any percentage shown next to the commitment dollar amount. If true fund ownership % is not stated, return null.
+- net_irr: NEVER calculate -- only extract if explicitly stated, else null
+
+Return ONLY the JSON array, no markdown, no explanation.`;
+
+// -- MULTIPLES CALCULATION --
+// Always calculated from raw numbers -- never trusted from statements
+function calcMultiples(r) {
+  const contrib = parseFloat(r.contributions_itd);
+  const dist = parseFloat(r.distributions_itd) || 0;
+  const nav = parseFloat(r.ending_nav) || 0;
+  if (contrib > 0) {
+    r.dpi  = parseFloat((dist / contrib).toFixed(4));
+    r.tvpi = parseFloat(((nav + dist) / contrib).toFixed(4));
+    r.moic = r.tvpi; // moic = tvpi on LP account basis
+  } else {
+    r.dpi = null; r.tvpi = null; r.moic = null;
+  }
+  return r;
+}
+
+function parseExtracted(raw) {
+  const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim());
+  const arr = Array.isArray(parsed) ? parsed : [parsed];
+  return arr.filter(r => r && r.fund_name && r.statement_date).map(calcMultiples);
+}
+
+async function extractFromPDF(base64) {
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'x-api-key':apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
+    body:JSON.stringify({ model:'claude-opus-4-5', max_tokens:2000, messages:[{ role:'user', content:[
+      { type:'document', source:{ type:'base64', media_type:'application/pdf', data:base64 } },
+      { type:'text', text:'You are extracting data from a venture fund LP capital account statement.\n\n' + EXTRACTION_RULES }
+    ]}]})
+  });
+  if (!resp.ok) { const e = await resp.json(); throw new Error(e.error?.message||'API error'); }
+  const data = await resp.json();
+  return parseExtracted(data.content.map(c=>c.text||'').join(''));
+}
+
+async function extractFromText(text) {
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'x-api-key':apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
+    body:JSON.stringify({ model:'claude-opus-4-5', max_tokens:2000, messages:[{ role:'user', content:
+      'You are extracting data from a venture fund LP capital account statement (converted from Excel).\n\nContent:\n' + text.slice(0,12000) + '\n\n' + EXTRACTION_RULES
+    }]})
+  });
+  if (!resp.ok) { const e = await resp.json(); throw new Error(e.error?.message||'API error'); }
+  const data = await resp.json();
+  return parseExtracted(data.content.map(c=>c.text||'').join(''));
+}
+
+// -- IMPORT / EXPORT -----------------------------------------------------------
+function triggerImport() { document.getElementById('csv-import-input').click(); }
+
+// Emergency: read raw localStorage from another tab
+function rescueFromLocalStorage() {
+  const raw = prompt('Paste the raw data from your old tab:\n\nIn your OLD tab, open the browser console (Cmd+Option+J) and run:\n  copy(localStorage.getItem("hv_records"))\n\nThen paste here:');
+  if (!raw) return;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || !parsed.length) { toast('No valid data found', 'error'); return; }
+    parsed.forEach(calcMultiples);
+    records = parsed;
+    save(); renderFundNav(); renderPortfolio();
+    toast(parsed.length + ' records restored', 'success');
+  } catch(e) {
+    toast('Could not parse data -- make sure you copied correctly', 'error');
+  }
+}
+
+function parseCSVLine(line) {
+  const result = []; let cur = ''; let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') { if (inQ && line[i+1]==='"') { cur+='"'; i++; } else inQ=!inQ; }
+    else if (ch === ',' && !inQ) { result.push(cur.trim()); cur=''; }
+    else cur += ch;
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+function importCSV(e) {
+  const file = e.target.files[0]; if (!file) return;
+  e.target.value = '';
+  const reader = new FileReader();
+  reader.onerror = () => toast('Could not read file', 'error');
+  reader.onload = (ev) => {
+    const lines = ev.target.result.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(l=>l.trim());
+    if (lines.length < 2) { toast('CSV appears empty', 'error'); return; }
+    const headers = parseCSVLine(lines[0]);
+    const keyMap = {
+      'Fund Name':'fund_name','LP Entity':'lp_entity','Statement Date':'statement_date',
+      'LKS?':'lks','Vintage':'vintage','Currency':'currency','Fund Size':'fund_size',
+      'Total Commitment':'total_commitment','Contributions ITD':'contributions_itd',
+      'Remaining Commitment':'remaining_commitment','Distributions ITD':'distributions_itd',
+      'Ending NAV':'ending_nav','TVPI':'tvpi','DPI':'dpi','MOIC':'moic',
+      'Net IRR (%)':'net_irr','Ownership %':'ownership_pct'
+    };
+    const numeric = new Set(['vintage','fund_size','total_commitment','contributions_itd','remaining_commitment','distributions_itd','ending_nav','tvpi','dpi','moic','net_irr','ownership_pct']);
+    const imported = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseCSVLine(lines[i]);
+      const row = {};
+      headers.forEach((h,idx) => {
+        const key = keyMap[h]; if (!key) return;
+        const val = (cols[idx]||'').trim();
+        row[key] = numeric.has(key) ? (val===''?null:parseFloat(val)) : val;
+      });
+      if (row.fund_name) imported.push(row);
+    }
+    if (!imported.length) { toast('No valid records found', 'error'); return; }
+    for (const rec of imported) {
+      calcMultiples(rec);
+      const idx = records.findIndex(r => r.fund_name===rec.fund_name && r.statement_date===rec.statement_date);
+      if (idx >= 0) records[idx] = rec; else records.push(rec);
+    }
+    save(); renderFundNav(); renderPortfolio();
+    toast(imported.length + ' records imported', 'success');
+  };
+  reader.readAsText(file);
+}
+
+function exportCSV() {
+  if (!records.length) { toast('No data to export', 'error'); return; }
+  const headers = ['Fund Name','LP Entity','Statement Date','LKS?','Vintage','Currency','Fund Size','Total Commitment','Contributions ITD','Remaining Commitment','Distributions ITD','Ending NAV','TVPI','DPI','MOIC','Net IRR (%)','Ownership %'];
+  const rows = records.map(r => [r.fund_name,r.lp_entity,r.statement_date,r.lks,r.vintage,r.currency||'USD',r.fund_size,r.total_commitment,r.contributions_itd,r.remaining_commitment,r.distributions_itd,r.ending_nav,r.tvpi,r.dpi,r.moic,r.net_irr,r.ownership_pct]);
+  const csv = [headers,...rows].map(r => r.map(v=>`"${v??''}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = 'horizons_lp_portfolio_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  toast('CSV exported', 'success');
+}
+
+// -- API KEY --
+function saveApiKey() {
+  const val = document.getElementById('api-key-input').value.trim();
+  if (!val.startsWith('sk-ant-')) { toast('Key should start with sk-ant-...','error'); return; }
+  apiKey = val; localStorage.setItem('hv_api_key', apiKey);
+  setApiStatus(true); hideModal('api-modal'); toast('API key saved','success');
+}
+function setApiStatus(on) {
+  document.getElementById('api-dot').className = 'api-dot' + (on?' connected':'');
+  document.getElementById('api-status-text').textContent = on ? 'API Connected' : 'No API Key';
+}
+
+// -- MODAL --
+function showModal(id) {
+  if (id === 'api-modal') document.getElementById('api-key-input').value = apiKey;
+  document.getElementById(id).classList.remove('hidden');
+}
+function hideModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+// -- TOAST --
+let toastTimer;
+function toast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (type?' '+type:'') + ' show';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
+}
+</script>
+</body>
+</html>
